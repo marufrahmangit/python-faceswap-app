@@ -2,11 +2,14 @@ from flask import Flask, render_template, request, jsonify
 import requests
 import base64
 import os
+from dotenv import load_dotenv
+
+load_dotenv()  # take environment variables from .env
 
 app = Flask(__name__)
 
-API_KEY = "cmg1vhurc00fhjx04f8okniph"
-BASE_URL = "https://prod.api.market/api/v1/magicapi/faceswap-v2/faceswap"
+API_KEY = os.getenv("API_KEY")
+BASE_URL = os.getenv("BASE_URL")
 
 # Ensure static folder exists
 if not os.path.exists("static"):
