@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>FaceSwap App</title>
+    <style>
+        body { font-family: Arial, sans-serif; text-align: center; margin: 50px; }
+        input { width: 400px; padding: 10px; margin: 10px; }
+        button { padding: 10px 20px; margin: 20px; cursor: pointer; }
+        img { max-width: 500px; margin-top: 20px; border-radius: 10px; }
+        .error { color: red; }
+    </style>
+</head>
+<body>
+    <h1>FaceSwap App</h1>
+    <form method="POST">
+        <input type="text" name="swap_url" placeholder="Swap Image URL" value="{{ swap_url }}" required><br>
+        <input type="text" name="target_url" placeholder="Target Image URL" value="{{ target_url }}" required><br>
+        <button type="submit">Swap Faces</button>
+    </form>
+
+    {% if error_message %}
+        <p class="error">{{ error_message }}</p>
+    {% endif %}
+
+    {% if result_url %}
+        <h2>Result:</h2>
+        <img src="{{ result_url }}" alt="Swapped Image"><br>
+        <a href="{{ result_url }}" download="faceswap_result.jpg">
+            <button>Download Image</button>
+        </a>
+    {% endif %}
+</body>
+</html>
