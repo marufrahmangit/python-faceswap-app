@@ -48,3 +48,4 @@ coverage.xml
 
 # Static files generated during build (optional)
 *.pyc
+/deployment-notes.txt
