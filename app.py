@@ -1,92 +1,103 @@
-from flask import Flask, render_template, request
+from flask import Flask, render_template, request, jsonify
 import requests
-import time
 import base64
 import os
 
 app = Flask(__name__)
 
-API_KEY = "cmg1vhurc00fhjx04f8okniph"  # your system-generated API key
+API_KEY = "cmg1vhurc00fhjx04f8okniph"
 BASE_URL = "https://prod.api.market/api/v1/magicapi/faceswap-v2/faceswap"
 
 # Ensure static folder exists
 if not os.path.exists("static"):
     os.makedirs("static")
 
+
 @app.route("/", methods=["GET", "POST"])
 def index():
-    result_url = None
-    error_message = None
+    return render_template("index.html")
 
-    # Default URLs for testing
-    swap_url = "https://imgur.com/wXDBzHs"
-    target_url = "https://imgur.com/UZfuI3E"
 
-    if request.method == "POST":
-        # Use form input if provided
-        swap_url = request.form.get("swap_url").strip() or swap_url
-        target_url = request.form.get("target_url").strip() or target_url
+@app.route("/swap", methods=["POST"])
+def swap():
+    swap_url = request.form.get("swap_url", "").strip()
+    target_url = request.form.get("target_url", "").strip()
 
-        try:
-            # Step 1: Start face swap
-            run_url = f"{BASE_URL}/image/run"
-            response = requests.post(
-                run_url,
-                headers={
-                    "accept": "application/json",
-                    "x-api-market-key": API_KEY,
-                    "Content-Type": "application/json",
-                },
-                json={
-                    "input": {
-                        "swap_image": swap_url,
-                        "target_image": target_url,
-                    }
+    if not swap_url or not target_url:
+        return jsonify({"status": "error", "message": "Both image URLs are required."})
+
+    try:
+        # Step 1: Start face swap
+        run_url = f"{BASE_URL}/image/run"
+        response = requests.post(
+            run_url,
+            headers={
+                "accept": "application/json",
+                "x-api-market-key": API_KEY,
+                "Content-Type": "application/json",
+            },
+            json={
+                "input": {
+                    "swap_image": swap_url,
+                    "target_image": target_url,
                 }
+            }
+        )
+        response.raise_for_status()
+        request_id = response.json().get("id")
+        if not request_id:
+            return jsonify({"status": "error", "message": "API did not return a request ID."})
+
+        return jsonify({"status": "processing", "request_id": request_id})
+
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)})
+
+
+@app.route("/status/<request_id>")
+def status(request_id):
+    try:
+        status_url = f"{BASE_URL}/image/status/{request_id}"
+        result_response = requests.get(
+            status_url,
+            headers={
+                "accept": "application/json",
+                "x-api-market-key": API_KEY,
+            }
+        )
+        data = result_response.json()
+
+        if data.get("status") == "COMPLETED" and "output" in data:
+            img_base64 = data["output"].split(",")[1]
+            img_bytes = base64.b64decode(img_base64)
+            file_path = "static/result.jpg"
+            with open(file_path, "wb") as f:
+                f.write(img_bytes)
+            return jsonify({"status": "completed", "result_url": "/static/result.jpg"})
+        elif data.get("status") == "FAILED":
+            # Enhanced user-friendly error message
+            message = (
+                "Face swap failed. Common reasons:\n"
+                "- Source image does not clearly show a face.\n"
+                "- Target image face is too large, small, or angled.\n"
+                "- Faces are obstructed or blurry.\n"
+                "Please try another image."
             )
-            response.raise_for_status()
-            request_id = response.json().get("id")
-            if not request_id:
-                raise Exception("API did not return a request ID.")
+            if "error" in data:
+                message += f"\nAPI error details: {data['error']}"
+            return jsonify({"status": "failed", "message": message})
+        else:
+            # Return progress info (simulate % based on API delay/execution time if available)
+            delay = data.get("delayTime", 0)
+            execution = data.get("executionTime", 0)
+            total = delay + execution + 1000  # rough estimate
+            completed = min(delay + execution, total)
+            percent = int(completed / total * 100) if total else 0
+            return jsonify({"status": "processing", "percent": percent})
 
-            # Step 2: Poll status until completed
-            for _ in range(20):  # up to ~60s
-                status_url = f"{BASE_URL}/image/status/{request_id}"
-                result_response = requests.get(
-                    status_url,
-                    headers={
-                        "accept": "application/json",
-                        "x-api-market-key": API_KEY,
-                    }
-                )
-                data = result_response.json()
-                print("Polling response:", data)  # debug log
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)})
 
-                if data.get("status") == "COMPLETED" and "output" in data:
-                    img_base64 = data["output"].split(",")[1]  # remove "data:image/jpeg;base64,"
-                    img_bytes = base64.b64decode(img_base64)
-                    file_path = "static/result.jpg"
-                    with open(file_path, "wb") as f:
-                        f.write(img_bytes)
-                    result_url = "/static/result.jpg"
-                    break
-                elif data.get("status") == "FAILED":
-                    error_message = "API failed to process the image."
-                    break
-
-                time.sleep(3)
-
-            if not result_url and not error_message:
-                error_message = "Processing took too long. Try again."
-
-        except Exception as e:
-            error_message = f"Error: {str(e)}"
-
-    return render_template("index.html",
-                           result_url=result_url,
-                           error_message=error_message,
-                           swap_url=swap_url,
-                           target_url=target_url)
 
 if __name__ == "__main__":
     app.run(debug=True)
