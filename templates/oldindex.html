@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Morphix | Swap faces! 🤭</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+<h1>Morphix</h1>
+<p>Swap faces ! 🤭</p>
+<form id="swap-form">
+    <input type="text" name="swap_url" placeholder="Source Image URL" required><br>
+    <input type="text" name="target_url" placeholder="Target Image URL" required><br>
+    <button type="submit">Swap Faces</button>
+</form>
+
+<div id="progress-container" style="display:none;">
+    <div id="progress-bar"></div>
+    <div id="progress-text">0%</div>
+</div>
+
+<div id="result"></div>
+<div id="error"></div>
+
+<script>
+const form = document.getElementById("swap-form");
+const progressBar = document.getElementById("progress-bar");
+const progressText = document.getElementById("progress-text");
+const progressContainer = document.getElementById("progress-container");
+const resultDiv = document.getElementById("result");
+const errorDiv = document.getElementById("error");
+
+form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    resultDiv.innerHTML = "";
+    errorDiv.innerHTML = "";
+    progressBar.style.width = "0%";
+    progressText.textContent = "0%";
+    progressContainer.style.display = "block";
+
+    const formData = new FormData(form);
+    const response = await fetch("/swap", { method: "POST", body: formData });
+    const data = await response.json();
+
+    if (data.status === "error") {
+        errorDiv.textContent = data.message;
+        progressContainer.style.display = "none";
+        return;
+    }
+
+    const requestId = data.request_id;
+
+    const pollStatus = async () => {
+        const statusRes = await fetch(`/status/${requestId}`);
+        const statusData = await statusRes.json();
+
+        if (statusData.status === "processing") {
+            progressBar.style.width = statusData.percent + "%";
+            progressText.textContent = statusData.percent + "%";
+            setTimeout(pollStatus, 1000);
+        } else if (statusData.status === "completed") {
+            progressBar.style.width = "100%";
+            progressText.textContent = "100%";
+            resultDiv.innerHTML = `<img src="${statusData.result_url}" alt="Result">`;
+        } else if (statusData.status === "failed") {
+            errorDiv.textContent = statusData.message;
+            progressContainer.style.display = "none";
+        } else if (statusData.status === "error") {
+            errorDiv.textContent = statusData.message;
+            progressContainer.style.display = "none";
+        }
+    };
+
+    pollStatus();
+});
+</script>
+<footer style="margin-top:50px; font-size:14px; color:#555;">
+    Developed by Maruf Rahman |
+    <a href="https://www.linkedin.com/in/marufrahmanpro" target="_blank" style="color:#0A66C2; text-decoration:none;">LinkedIn</a> |
+    <a href="https://www.youtube.com/@marufrahmandigital" target="_blank" style="color:#FF0000; text-decoration:none;">YouTube</a>
+</footer>
+</body>
+</html>

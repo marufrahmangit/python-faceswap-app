@@ -1,99 +1,315 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<title>Morphix | Swap faces! 🤭</title>
-<style>
-body { font-family: Arial, sans-serif; text-align: center; padding: 50px; }
-input { width: 400px; margin: 5px; padding: 8px; }
-button { padding: 10px 20px; }
-#progress-container {
-    width: 300px; height: 30px; border-radius: 15px; background: rgba(0,0,0,0.1); margin: 20px auto;
-    position: relative; overflow: hidden;
-}
-#progress-bar {
-    width: 0%; height: 100%; background-color: rgba(0, 255, 0, 0.7); transition: width 0.3s;
-}
-#progress-text {
-    position: absolute; width: 100%; text-align: center; top: 0; line-height: 30px; font-weight: bold;
-}
-#result img { max-width: 100%; margin-top: 20px; border: 2px solid green; border-radius: 10px; }
-#error { color: red; margin-top: 15px; white-space: pre-line; }
-</style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Morphix | Swap faces! 🤭</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
-<h1>Morphix</h1>
-<p>Swap faces ! 🤭</p>
-<form id="swap-form">
-    <input type="text" name="swap_url" placeholder="Source Image URL" required><br>
-    <input type="text" name="target_url" placeholder="Target Image URL" required><br>
-    <button type="submit">Swap Faces</button>
-</form>
+    <div class="container">
+        <div class="header">
+            <h1>Morphix</h1>
+            <p>Swap faces instantly! 🤭</p>
+        </div>
 
-<div id="progress-container" style="display:none;">
-    <div id="progress-bar"></div>
-    <div id="progress-text">0%</div>
-</div>
+        <div class="main-content">
+            <form id="swap-form">
+                <div class="upload-section">
+                    <h2 class="section-title">Upload Your Images</h2>
 
-<div id="result"></div>
-<div id="error"></div>
+                    <div class="upload-options">
+                        <div class="upload-card" id="source-card">
+                            <input type="file" class="file-input" id="source-file" accept="image/*">
+                            <div class="upload-icon">📷</div>
+                            <div class="upload-text">Source Image</div>
+                            <div class="upload-subtext">Click to upload or drop image</div>
+                            <input type="text" class="url-input" placeholder="Or paste image URL" id="source-url">
+                        </div>
 
-<script>
-const form = document.getElementById("swap-form");
-const progressBar = document.getElementById("progress-bar");
-const progressText = document.getElementById("progress-text");
-const progressContainer = document.getElementById("progress-container");
-const resultDiv = document.getElementById("result");
-const errorDiv = document.getElementById("error");
+                        <div class="upload-card" id="target-card">
+                            <input type="file" class="file-input" id="target-file" accept="image/*">
+                            <div class="upload-icon">🎭</div>
+                            <div class="upload-text">Target Image</div>
+                            <div class="upload-subtext">Click to upload or drop image</div>
+                            <input type="text" class="url-input" placeholder="Or paste image URL" id="target-url">
+                        </div>
+                    </div>
+                </div>
 
-form.addEventListener("submit", async (e) => {
-    e.preventDefault();
-    resultDiv.innerHTML = "";
-    errorDiv.innerHTML = "";
-    progressBar.style.width = "0%";
-    progressText.textContent = "0%";
-    progressContainer.style.display = "block";
+                <div class="preview-container">
+                    <div class="preview-card">
+                        <h3>Source Preview</h3>
+                        <div id="source-preview" class="no-image">No image selected</div>
+                    </div>
+                    <div class="preview-card">
+                        <h3>Target Preview</h3>
+                        <div id="target-preview" class="no-image">No image selected</div>
+                    </div>
+                </div>
 
-    const formData = new FormData(form);
-    const response = await fetch("/swap", { method: "POST", body: formData });
-    const data = await response.json();
+                <button type="submit" class="swap-button" id="swap-btn" disabled>
+                    ✨ Swap Faces ✨
+                </button>
+            </form>
 
-    if (data.status === "error") {
-        errorDiv.textContent = data.message;
-        progressContainer.style.display = "none";
-        return;
-    }
+            <div class="progress-container" id="progress-container">
+                <div class="progress-bar" id="progress-bar"></div>
+                <div class="progress-text" id="progress-text">0%</div>
+            </div>
 
-    const requestId = data.request_id;
+            <div id="result" class="result-section"></div>
+            <div id="error"></div>
+        </div>
 
-    const pollStatus = async () => {
-        const statusRes = await fetch(`/status/${requestId}`);
-        const statusData = await statusRes.json();
+        <div class="footer">
+            Developed by Maruf Rahman |
+            <a href="https://www.linkedin.com/in/marufrahmanpro" target="_blank">LinkedIn</a> |
+            <a href="https://www.youtube.com/@marufrahmandigital" target="_blank">YouTube</a>
+        </div>
+    </div>
 
-        if (statusData.status === "processing") {
-            progressBar.style.width = statusData.percent + "%";
-            progressText.textContent = statusData.percent + "%";
-            setTimeout(pollStatus, 1000);
-        } else if (statusData.status === "completed") {
-            progressBar.style.width = "100%";
-            progressText.textContent = "100%";
-            resultDiv.innerHTML = `<img src="${statusData.result_url}" alt="Result">`;
-        } else if (statusData.status === "failed") {
-            errorDiv.textContent = statusData.message;
-            progressContainer.style.display = "none";
-        } else if (statusData.status === "error") {
-            errorDiv.textContent = statusData.message;
-            progressContainer.style.display = "none";
+    <script>
+        const form = document.getElementById("swap-form");
+        const progressBar = document.getElementById("progress-bar");
+        const progressText = document.getElementById("progress-text");
+        const progressContainer = document.getElementById("progress-container");
+        const resultDiv = document.getElementById("result");
+        const errorDiv = document.getElementById("error");
+        const swapBtn = document.getElementById("swap-btn");
+
+        // File inputs and previews
+        const sourceFile = document.getElementById("source-file");
+        const targetFile = document.getElementById("target-file");
+        const sourceUrl = document.getElementById("source-url");
+        const targetUrl = document.getElementById("target-url");
+        const sourcePreview = document.getElementById("source-preview");
+        const targetPreview = document.getElementById("target-preview");
+        const sourceCard = document.getElementById("source-card");
+        const targetCard = document.getElementById("target-card");
+
+        let sourceImageData = null;
+        let targetImageData = null;
+
+        // Handle file uploads
+        sourceFile.addEventListener("change", (e) => handleFileUpload(e, "source"));
+        targetFile.addEventListener("change", (e) => handleFileUpload(e, "target"));
+
+        // Handle URL inputs
+        sourceUrl.addEventListener("input", (e) => handleUrlInput(e.target.value, "source"));
+        targetUrl.addEventListener("input", (e) => handleUrlInput(e.target.value, "target"));
+
+        // Handle drag and drop
+        setupDragAndDrop(sourceCard, sourceFile, "source");
+        setupDragAndDrop(targetCard, targetFile, "target");
+
+        function handleFileUpload(event, type) {
+            const file = event.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    const imageUrl = e.target.result;
+                    updatePreview(type, imageUrl, file.name);
+                    if (type === "source") {
+                        sourceImageData = file;
+                        sourceUrl.value = "";
+                    } else {
+                        targetImageData = file;
+                        targetUrl.value = "";
+                    }
+                    checkSwapButtonState();
+                };
+                reader.readAsDataURL(file);
+            }
         }
-    };
 
-    pollStatus();
-});
-</script>
-<footer style="margin-top:50px; font-size:14px; color:#555;">
-    Developed by Maruf Rahman |
-    <a href="https://www.linkedin.com/in/marufrahmanpro" target="_blank" style="color:#0A66C2; text-decoration:none;">LinkedIn</a> |
-    <a href="https://www.youtube.com/@marufrahmandigital" target="_blank" style="color:#FF0000; text-decoration:none;">YouTube</a>
-</footer>
+        function handleUrlInput(url, type) {
+            if (url.trim()) {
+                updatePreview(type, url, "URL Image");
+                if (type === "source") {
+                    sourceImageData = url;
+                    sourceFile.value = "";
+                } else {
+                    targetImageData = url;
+                    targetFile.value = "";
+                }
+            } else {
+                clearPreview(type);
+                if (type === "source") {
+                    sourceImageData = null;
+                } else {
+                    targetImageData = null;
+                }
+            }
+            checkSwapButtonState();
+        }
+
+        function updatePreview(type, imageSrc, fileName) {
+            const preview = type === "source" ? sourcePreview : targetPreview;
+            const card = type === "source" ? sourceCard : targetCard;
+
+            preview.innerHTML = `<img src="${imageSrc}" alt="${fileName}" class="preview-image">`;
+            card.classList.add("has-image");
+        }
+
+        function clearPreview(type) {
+            const preview = type === "source" ? sourcePreview : targetPreview;
+            const card = type === "source" ? sourceCard : targetCard;
+
+            preview.innerHTML = "No image selected";
+            preview.className = "no-image";
+            card.classList.remove("has-image");
+        }
+
+        function checkSwapButtonState() {
+            swapBtn.disabled = !sourceImageData || !targetImageData;
+        }
+
+        function setupDragAndDrop(card, fileInput, type) {
+            card.addEventListener("dragover", (e) => {
+                e.preventDefault();
+                card.style.borderColor = "#667eea";
+                card.style.backgroundColor = "#f8f9ff";
+            });
+
+            card.addEventListener("dragleave", (e) => {
+                e.preventDefault();
+                card.style.borderColor = "#ddd";
+                card.style.backgroundColor = "";
+            });
+
+            card.addEventListener("drop", (e) => {
+                e.preventDefault();
+                card.style.borderColor = "#ddd";
+                card.style.backgroundColor = "";
+
+                const files = e.dataTransfer.files;
+                if (files.length > 0 && files[0].type.startsWith("image/")) {
+                    fileInput.files = files;
+                    handleFileUpload({ target: fileInput }, type);
+                }
+            });
+        }
+
+        form.addEventListener("submit", async (e) => {
+            e.preventDefault();
+            resultDiv.innerHTML = "";
+            errorDiv.innerHTML = "";
+            progressBar.style.width = "0%";
+            progressText.textContent = "Initializing...";
+            progressContainer.style.display = "block";
+            swapBtn.disabled = true;
+
+            const formData = new FormData();
+
+            // Add files or URLs to form data
+            if (sourceImageData instanceof File) {
+                formData.append("source_file", sourceImageData);
+            } else {
+                formData.append("swap_url", sourceImageData);
+            }
+
+            if (targetImageData instanceof File) {
+                formData.append("target_file", targetImageData);
+            } else {
+                formData.append("target_url", targetImageData);
+            }
+
+            try {
+                const response = await fetch("/swap", { method: "POST", body: formData });
+                const data = await response.json();
+
+                if (data.status === "error") {
+                    errorDiv.innerHTML = `<div class="error">${data.message}</div>`;
+                    progressContainer.style.display = "none";
+                    swapBtn.disabled = false;
+                    return;
+                }
+
+                const requestId = data.request_id;
+                pollStatus(requestId);
+
+            } catch (error) {
+                errorDiv.innerHTML = `<div class="error">Network error: ${error.message}</div>`;
+                progressContainer.style.display = "none";
+                swapBtn.disabled = false;
+            }
+        });
+
+        async function pollStatus(requestId) {
+            try {
+                const statusRes = await fetch(`/status/${requestId}`);
+                const statusData = await statusRes.json();
+
+                if (statusData.status === "processing") {
+                    progressBar.style.width = statusData.percent + "%";
+                    progressText.textContent = statusData.percent + "%";
+                    setTimeout(() => pollStatus(requestId), 1000);
+                } else if (statusData.status === "completed") {
+                    progressBar.style.width = "100%";
+                    progressText.textContent = "Complete!";
+                    setTimeout(() => {
+                        progressContainer.style.display = "none";
+                        showResult(statusData.result_url);
+                        swapBtn.disabled = false;
+                    }, 500);
+                } else if (statusData.status === "failed" || statusData.status === "error") {
+                    errorDiv.innerHTML = `<div class="error">${statusData.message}</div>`;
+                    progressContainer.style.display = "none";
+                    swapBtn.disabled = false;
+                }
+            } catch (error) {
+                errorDiv.innerHTML = `<div class="error">Status check failed: ${error.message}</div>`;
+                progressContainer.style.display = "none";
+                swapBtn.disabled = false;
+            }
+        }
+
+        function showResult(imageUrl) {
+            resultDiv.innerHTML = `
+                <div class="result-card">
+                    <h3>✨ Face Swap Complete! ✨</h3>
+                    <img src="${imageUrl}" alt="Face Swap Result" class="result-image">
+                    <div>
+                        <a href="${imageUrl}" download="faceswap_result.jpg" class="download-button">
+                            📥 Download Result
+                        </a>
+                        <button class="download-button" onclick="shareResult('${imageUrl}')">
+                            📱 Share
+                        </button>
+                    </div>
+                </div>
+            `;
+        }
+
+        function shareResult(imageUrl) {
+            if (navigator.share) {
+                fetch(imageUrl)
+                    .then(response => response.blob())
+                    .then(blob => {
+                        const file = new File([blob], 'faceswap_result.jpg', { type: blob.type });
+                        navigator.share({
+                            title: 'My Face Swap Result',
+                            text: 'Check out this amazing face swap!',
+                            files: [file]
+                        });
+                    })
+                    .catch(err => {
+                        // Fallback to URL sharing
+                        navigator.share({
+                            title: 'My Face Swap Result',
+                            text: 'Check out this amazing face swap!',
+                            url: window.location.href
+                        });
+                    });
+            } else {
+                // Fallback for browsers without Web Share API
+                const shareUrl = window.location.href;
+                navigator.clipboard.writeText(shareUrl).then(() => {
+                    alert('Link copied to clipboard!');
+                });
+            }
+        }
+    </script>
 </body>
 </html>
